@@ -1,0 +1,50 @@
+---
+title: "GENESYS PEDIGREE"
+author: "Anthony Di Fiore"
+date: "9/9/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+f <- "~/Desktop/GENESYS OUTPUT 2020-09-18 23-48-08 SEED 0/BIRTHS 2020-09-18 23-48-08.csv"
+b <- read_csv(f,col_names = TRUE, skip = 2)
+f <- "~/Desktop/GENESYS OUTPUT 2020-09-18 23-48-08 SEED 0/DEATHS 2020-09-18 23-48-08.csv"
+d <- read_csv(f,col_names = TRUE, skip = 2)
+t <- left_join(b,d, by="IDNUM")
+fem <- filter(t, SEX.x=="F")
+hist(fem$`DOM-COUNT`)
+plot(t$`X-COR.y`,t$`Y-COR.y`)
+library(kinship2)
+f <- "~/Desktop/GENESYS OUTPUT 2020-09-18 23-48-08 SEED 0/FOUNDERS 2020-09-18 23-48-08.csv"
+founders <- read_csv(f,col_names = TRUE, skip = 2)
+founders <- founders %>% select(`IDNUM`, `SEX`, `BIRTH-YEAR`)
+f <- "~/Desktop/GENESYS OUTPUT 2020-09-18 23-48-08 SEED 0/IMMIGRANTS 2020-09-18 23-48-08.csv"
+immigrants <- read_csv(f,col_names = TRUE, skip = 2, na=c("","NA"))
+immigrants <- immigrants %>% select(`IDNUM`, `SEX`, `BIRTH-YEAR`)
+df <- full_join(founders, immigrants, by=c("IDNUM","SEX","BIRTH-YEAR"))
+f <- "~/Desktop/GENESYS OUTPUT 2020-09-18 23-48-08 SEED 0/BIRTHS 2020-09-18 23-48-08.csv"
+births <- read_csv(f,col_names = TRUE, skip = 2)
+births <- births %>% select(`IDNUM`, `SEX`, `BIRTH-YEAR`, `NATAL-POP`,`NATAL-GROUP`,`DAM`,`SIRE`)
+df <- full_join(df, births, by=c("IDNUM","SEX","BIRTH-YEAR"))
+
+f <- "~/Desktop/GENESYS OUTPUT 2020-09-18 23-48-08 SEED 0/PEDIGREE 2020-09-18 23-48-08.csv"
+pedigree <- read_csv(f,col_names = TRUE, skip = 4, na=c("","NA"))
+pedigree <- pedigree %>% select(`IDNUM`, `SEX`, `GROUP`,`DAM`,`SIRE`)
+p <- full_join(df, pedigree, by=c("IDNUM","SEX", "DAM", "SIRE"))
+p <- p %>% mutate(SEX = ifelse(SEX == "M", "male", "female"))
+pd <- pedigree(id = p$IDNUM, dadid = p$SIRE, momid = p$DAM, sex=p$SEX)
+print(pd)
+dams <- unique(p$DAM)
+sires <- unique(p$SIRE)
+d <- p %>% group_by(DAM) %>% summarise(count = n()) %>% filter(!is.na(DAM))
+hist(d$count)
+s <- p %>% group_by(SIRE) %>% summarise(count = n()) %>% filter(!is.na(SIRE))
+hist(s$count)
+kin <- kinship(pd)
+shrink <- pedigree.shrink(ped = pd, avail = maxBits = 30)
+```
